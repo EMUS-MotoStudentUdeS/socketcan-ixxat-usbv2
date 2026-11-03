@@ -18,6 +18,7 @@
 #include <linux/kernel.h>
 #include <linux/can/dev.h>
 #include <linux/usb.h>
+#include <linux/version.h>
 
 #include "ixxat_usb_core.h"
 
@@ -201,7 +202,11 @@ static int ixxat_usb_init_ctrl(struct ixxat_usb_device *dev)
 	//#define CAN_CTRLMODE_CC_LEN8_DLC	0x100	// Classic CAN DLC option
 
 	const struct can_bittiming *bt = &dev->can.bittiming;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0)
+	const struct can_bittiming *btd = &dev->can.fd.data_bittiming;
+#else
 	const struct can_bittiming *btd = &dev->can.data_bittiming;
+#endif
 	const u16 port = dev->ctrl_index;
 	int err;
 	struct ixxat_usb_init_cl2_cmd *cmd;

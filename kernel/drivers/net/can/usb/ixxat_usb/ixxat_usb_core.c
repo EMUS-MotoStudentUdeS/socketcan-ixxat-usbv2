@@ -43,7 +43,7 @@ MODULE_VERSION("2.0.366-REL");
 #if defined(CONFIG_TRACING) && defined(DEBUG)
 	#define ix_trace_printk(...) trace_printk(__VA_ARGS__)
 #else
-	#define ix_trace_printk(...)
+	#define ix_trace_printk(...) do { } while (0)
 #endif
 
 
@@ -680,7 +680,9 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_device *dev,
 				if (MsgIdx >= IXXAT_USB_MSG_IDX_OFFSET) {
 						MsgIdx -= IXXAT_USB_MSG_IDX_OFFSET;
 
-						can_get_echo_skb(netdev, MsgIdx, NULL);
+						/* tx_bytes already accounted above */
+						if (!can_get_echo_skb(netdev, MsgIdx, NULL))
+							ix_trace_printk("No echo skb for MsgIdx %u\n", MsgIdx);
 						ixxat_usb_msg_free_idx(dev, MsgIdx);
 				}
 			}
@@ -1592,7 +1594,10 @@ static const struct net_device_ops ixxat_usb_netdev_ops = {
 	.ndo_open = ixxat_usb_open,
 	.ndo_stop = ixxat_usb_stop,
 	.ndo_start_xmit = ixxat_usb_start_xmit,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 17, 0)
+	/* since 6.17 the CAN core handles the MTU itself */
 	.ndo_change_mtu = can_change_mtu,
+#endif
 };
 
 static const char *ixxat_usb_dev_name(u16 id)
@@ -1698,7 +1703,11 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 
 		dev->can.clock.freq = adapter->clock;
 		dev->can.bittiming_const = adapter->bt;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0)
+		dev->can.fd.data_bittiming_const = adapter->btd;
+#else
 		dev->can.data_bittiming_const = adapter->btd;
+#endif
 
 		dev->can.restart_ms = IXXAT_USB_DEFAULT_RESTART_MS;
 		dev->can.ctrlmode_supported = adapter->modes;
